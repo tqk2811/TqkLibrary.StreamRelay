@@ -2,7 +2,7 @@
 
 > Relay video stream chạy trên ASP.NET Core: thiết bị đẩy container stream lên server, server demux thành AVPacket và phân phát lại cho nhiều client xem. Phân biệt stream theo GUID cho cả thiết bị lẫn client.
 >
-> Trạng thái: **M1 (Core) — foundation đã xong, build net8.0 sạch.** Cập nhật: 2026-06-23.
+> Trạng thái: **M1–M6 HOÀN TẤT.** Build solution sạch, 23 unit/integration test pass, smoke In/OutOfProcess + fMP4 HTTP đều PASS. Cập nhật: 2026-06-23.
 
 ## 1. Quyết định đã chốt
 
@@ -129,7 +129,7 @@ Zero-copy fan-out (1 buffer → N WS), `ArrayPool` + refcount, một send loop/c
 | M3 | Demux.FFmpeg + Native: CMake, AVIO ring, C ABI, SEH guard, `Build.ps1` | **Xong** — native build (win x64/x86/arm64) OK, integration test demux mpegts thật pass |
 | M4 | Demo: host + console device-pusher + native viewer (end-to-end) | **Xong** — smoke chạy thật PASS (init h264 + 30 packet + 2 keyframe + EOS) |
 | M5 | Out-of-process demux (worker exe + supervisor + warm pool) | **Xong** — smoke OutOfProcess PASS, test cap MaxWorkers→503 |
-| M6 | Web client (fMP4/MSE hoặc WebCodecs) | Chưa |
+| M6 | Web client (fMP4/MSE hoặc WebCodecs) | **Xong** — remux fMP4 native, endpoint `/relay/view/{guid}.mp4`, MSE viewer; HTTP smoke ra ftyp/moov/moof/mdat |
 
 ## 11. Cấu trúc thư mục hiện tại
 

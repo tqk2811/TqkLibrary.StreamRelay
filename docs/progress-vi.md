@@ -132,4 +132,34 @@
 - `DemuxWorkerSupervisorTests`: Acquire vượt MaxWorkers=2 → `DemuxCapacityExceededException`; release 1 slot → acquire lại OK; unlimited (0) không ném.
 
 ### Commit
-(ghi sau khi commit)
+- `8c38de0` feat(demux-native prctl), `6b4e30f` feat(aspnetcore 503), test, `4516eb1` docs
+
+## M6 — Web client fMP4/MSE — XONG (HTTP smoke ra ftyp/moov/moof/mdat)
+
+### Native (`...Demux.FFmpeg.Native`)
+- `MuxInterop.h`: struct `MuxStreamIn`/`MuxPacketIn` (`pack(8)`).
+- `FragmentSink.h`: gom byte từ write-callback AVIO.
+- `Muxer.{h,cpp}`: fMP4 mux. `avformat_alloc_output_context2(mp4)` + `avformat_new_stream` (copy codecpar/extradata/timebase từ init) + custom write-only AVIO → `FragmentSink`. `WriteHeader`: `movflags=frag_keyframe+empty_moov+default_base_moof+separate_moof` → init segment (ftyp+moov). `WritePacket`: `av_interleaved_write_frame` (copy packet qua `av_new_packet`) → fragment (moof+mdat). Remux packet hợp lệ → an toàn, không cần SEH.
+- `Exports.{h,cpp}`: thêm C ABI `Mux_Alloc/AddStream/WriteHeader/WritePacket/WriteTrailer/Free`. CMake thêm `Muxer.cpp` vào shared lib (worker không mux).
+
+### Managed (`...Demux.FFmpeg`)
+- `Interop/{MuxStreamIn,MuxPacketIn}.cs`: mirror.
+- `NativeWrapper.cs`: P/Invoke Mux ABI.
+- `FragmentedMp4Remuxer.cs`: wrap muxer; AddStream từng stream (pin extradata), `WriteHeader` → init segment, `WritePacket` → fragment. Map MediaCodecKind→AVMediaType.
+- `FragmentedMp4PacketSink.cs` (`IPacketSink`): SendInit → tạo remuxer + ghi init segment ra response stream; SendPacket → ghi fragment; lỗi mux → faulted im lặng (không sập connection). Resync (init lại) → remuxer mới + init segment mới.
+- `Extensions/FragmentedMp4EndpointRouteBuilderExtensions.cs`: `MapRelayViewMp4("/relay/view/{streamId:guid}.mp4")` — HTTP GET, `TryGet` (404), `AddSubscriber` + `WriteToSinkAsync` → `FragmentedMp4PacketSink(Response.Body)`, content-type `video/mp4`.
+
+### Demo
+- `RelayHostFactory`: thêm `MapRelayViewMp4()`.
+- `wwwroot/index.html` + `wwwroot/js/mse-viewer.js`: viewer MSE — nhập GUID, fetch `/relay/view/{guid}.mp4`, đẩy chunk vào `SourceBuffer` (mode sequence), MIME `avc1.640029,mp4a.40.2`.
+
+### Test (23 pass, 0 skip)
+- `FragmentedMp4RemuxerTests`: demux `sample.ts` → remux fMP4 → init segment có `ftyp`+`moov`, fragment có `moof`+`mdat`. Chạy thật.
+
+### HTTP smoke `/relay/view/{guid}.mp4` — PASS
+serve + push (paced) + `curl` endpoint .mp4 → 8012 byte, đầu file `....ftyp iso5iso6mp41 ... moov ... mvhd`, có đủ `ftyp/moov/moof/mdat/mvex/trun/avc1`. fMP4 hợp lệ chảy qua HTTP, sẵn cho MSE.
+
+## Tổng kết
+- Build native Windows x64/x86/arm64 OK (FileVersion từ GitVersion). Linux/macOS native sinh bởi CI (CMake đã cấu hình sẵn .so).
+- 23 test pass. Smoke InProcess + OutOfProcess + fMP4 HTTP đều PASS.
+- M1–M6 hoàn tất.
