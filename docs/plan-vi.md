@@ -125,7 +125,7 @@ Zero-copy fan-out (1 buffer → N WS), `ArrayPool` + refcount, một send loop/c
 | Milestone | Nội dung | Trạng thái |
 |---|---|---|
 | **M1** | Core: models, interfaces, `RefCountedBuffer`, `GopBuffer`, `StreamSession`, `StreamRegistry`, Test | **Xong** — build net8.0 sạch, 16 test pass |
-| M2 | AspNetCore: WS endpoints ingest/view + DI + options + wire protocol | Chưa |
+| M2 | AspNetCore: WS endpoints ingest/view + DI + options + wire protocol | **Xong** — build sạch, +3 test wire protocol |
 | M3 | Demux.FFmpeg + Native: CMake, AVIO ring, C ABI, SEH guard, `Build.ps1` | Chưa |
 | M4 | Demo: host + console device-pusher + native viewer (end-to-end) | Chưa |
 | M5 | Out-of-process demux (worker exe + supervisor + warm pool) | Chưa |

@@ -33,4 +33,32 @@
 - Fakes: `FakeStreamDemuxer`, `FakePacketSink` (có gate giả lập client chậm), `TestPacketFactory`, `RefCountAssert` (probe AddRef/Release để biết buffer đã release hết chưa, không đụng internal Core).
 
 ### Commit
-(sẽ ghi hash sau khi commit)
+- `9bf797e` feat(core): StreamSession + StreamRegistry
+- `7b60f59` test(core)
+- `7750372` docs
+
+## M2 — AspNetCore: WS endpoints + DI + wire protocol — XONG
+
+### Đã làm
+- `Enums/DemuxMode.cs` (Auto/InProcess/OutOfProcess), `Enums/WireMessageType.cs` (Init/Packet/Control).
+- `WireProtocol.cs`: serialize Init/Packet/Control theo plan §5 (little-endian). Packet header 28 byte: `[u8 ver][u8 Packet][u8 streamIndex][u8 flags(bit0=keyframe)][i64 pts][i64 dts][i32 duration][i32 payloadLen][payload]`. Packet frame rent từ `ArrayPool` (caller return). Init frame mang formatName + mỗi stream: index/kind/codecId/codecName/WxH/sampleRate/channels/timebase/extradata.
+- `WireProtocolReader.cs` + `Models/WirePacket.cs`: parse ngược (cho native viewer M4 + test).
+- `WebSocketPacketSink.cs` (`IPacketSink`): gửi frame Init/Packet/Control qua WS binary; return buffer pooled sau gửi.
+- `StreamRelayOptions.cs`: DemuxMode, `RelaySessionOptions Session`, whitelist `AllowedFormats` (mpegts/mp4/mov/matroska/webm/flv/h264/hevc), buffer size, open timeout.
+- `NotConfiguredStreamDemuxerFactory.cs`: factory mặc định fail-fast (M3 thay bằng FFmpeg thật qua thứ tự `TryAddSingleton`).
+- `RelayConnectionHandler.cs`: engine cho cả 2 vai.
+  - Ingest: `GetOrCreateForIngest` → tạo demuxer → pump WS bytes vào `demuxer.WriteAsync` trên 1 task + `RunDemuxLoopAsync` trên task khác; có open timeout; finally release ingest + close socket.
+  - View: `TryGet` (404 nếu không có stream) → `AddSubscriber` → 1 send loop `WriteToSinkAsync` → `WebSocketPacketSink`; watch socket close để teardown; finally `RemoveSubscriber`.
+- `Extensions/StreamRelayServiceCollectionExtensions.cs`: `AddStreamRelay(o => ...)` đăng ký options + singleton `StreamRegistry` (lấy `RelaySessionOptions` từ options) + handler + factory placeholder.
+- `Extensions/StreamRelayEndpointRouteBuilderExtensions.cs`: `MapRelayIngest("/relay/ingest/{streamId:guid}")` (check `?format=` whitelist → 415 nếu sai), `MapRelayView("/relay/view/{streamId:guid}")`.
+
+### Quyết định
+- 1 native dll P/Invoke; factory resolve qua DI để M3 ghi đè không cần sửa M2.
+- Init không gửi qua channel của Core dưới dạng frame — Core trả `SubscriberMessage(Init)` ở `WriteToSinkAsync`, sink mới đóng frame. Giữ Core sạch giao thức.
+- View dùng 2 task: send loop + watch-close (đọc socket để bắt Close, hủy connCts).
+
+### Test (19 pass tổng)
+- `WireProtocolTests`: Init round-trip (video+audio+extradata), Packet round-trip (payload nguyên vẹn), Control = EOS.
+
+### Commit
+(ghi sau khi commit)
