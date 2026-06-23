@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/TqkLibrary.StreamRelay.AspNetCore/TqkLibrary.StreamRelay.AspNetCore.csproj" />
     <Project Path="src/TqkLibrary.StreamRelay.Core/TqkLibrary.StreamRelay.Core.csproj" />
   </Folder>
   <Folder Name="/test/">
