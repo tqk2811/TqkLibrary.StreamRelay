@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>TqkLibrary.StreamRelay.Demux.FFmpeg</RootNamespace>
+    <AssemblyName>TqkLibrary.StreamRelay.Demux.FFmpeg</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- Where Build.ps1 / CI collects the CMake-built native lib + worker per RID. -->
+    <NativeArtifactsDir Condition="'$(NativeArtifactsDir)' == ''">$(MSBuildProjectDirectory)\..\..\native-artifacts</NativeArtifactsDir>
+  </PropertyGroup>
+
+  <!-- FFmpeg 8.0 native libraries, one package per RID; their runtimes/<rid>/native
+       assets flow transitively to the consuming app. -->
+  <ItemGroup>
+    <PackageReference Include="TqkLibrary.FFmpeg.Native.Win.x86" Version="8.0.1.48" />
+    <PackageReference Include="TqkLibrary.FFmpeg.Native.Win.x64" Version="8.0.1.48" />
+    <PackageReference Include="TqkLibrary.FFmpeg.Native.Win.arm64" Version="8.0.1.48" />
+    <PackageReference Include="TqkLibrary.FFmpeg.Native.Linux.x64" Version="8.0.1.48" />
+    <PackageReference Include="TqkLibrary.FFmpeg.Native.Linux.arm64" Version="8.0.1.49" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TqkLibrary.StreamRelay.Core\TqkLibrary.StreamRelay.Core.csproj" />
+    <ProjectReference Include="..\TqkLibrary.StreamRelay.AspNetCore\TqkLibrary.StreamRelay.AspNetCore.csproj" />
+  </ItemGroup>
+
+  <!-- Ship the native wrapper + worker under runtimes/<rid>/native next to the
+       FFmpeg libs so the managed resolver finds them. -->
+  <ItemGroup Condition="Exists('$(NativeArtifactsDir)\runtimes')">
+    <Content Include="$(NativeArtifactsDir)\runtimes\**\*.*">
+      <Link>runtimes\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+      <Pack>false</Pack>
+    </Content>
+  </ItemGroup>
+
+</Project>
