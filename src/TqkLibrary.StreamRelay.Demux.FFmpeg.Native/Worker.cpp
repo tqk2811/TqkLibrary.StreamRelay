@@ -29,6 +29,10 @@
 #ifdef _WIN32
 #include <io.h>
 #include <fcntl.h>
+#else
+#include <sys/prctl.h>
+#include <signal.h>
+#include <unistd.h>
 #endif
 
 static std::mutex g_outMutex;
@@ -124,6 +128,14 @@ int main(int argc, char** argv) {
     // Binary stdio so byte streams are not mangled by CRLF translation.
     _setmode(_fileno(stdin), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
+#else
+    // Linux orphan protection: if the host dies, the kernel sends SIGKILL to this
+    // worker. Combined with the host putting workers in their own process group,
+    // this guarantees no orphaned demux workers survive a host crash.
+    prctl(PR_SET_PDEATHSIG, SIGKILL);
+    // Re-check in case the parent already died between fork and prctl.
+    if (getppid() == 1)
+        return 0;
 #endif
 
     const char* formatName = (argc > 1 && argv[1] && argv[1][0]) ? argv[1] : nullptr;
