@@ -110,4 +110,26 @@
 - Log `non-existing PPS 0 referenced` từ `av_parser` (parse keyframe không có decoder đầy đủ) — **vô hại**, parser vẫn set `key_frame` đúng (2 keyframe đúng vị trí). Chỉ là debug log của libav.
 
 ### Commit
+- `<m4-feat>` feat(demo), `f9e3c71` docs
+
+## M5 — Out-of-process demux (supervisor + warm pool + chống orphan) — XONG (smoke PASS)
+
+### Đã làm
+- `Worker.cpp`: thêm chống orphan Linux — `prctl(PR_SET_PDEATHSIG, SIGKILL)` (host chết → kernel SIGKILL worker) + check `getppid()==1`.
+- `Process/WindowsJobObject.cs`: Job Object `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (P/Invoke CreateJobObject/SetInformationJobObject/AssignProcessToJobObject/CloseHandle). Đóng handle (host chết) → kill mọi worker → không orphan trên Windows.
+- `Process/WorkerHandle.cs`: bọc process worker + stream stdin/stdout; `OnDisposed` callback để supervisor giảm đếm.
+- `DemuxWorkerSupervisor.cs`: `Acquire()` lấy worker từ warm pool hoặc spawn mới, tôn trọng `MaxWorkers` (vượt → `DemuxCapacityExceededException`). Warm pool top-up bất đồng bộ (ThreadPool). Windows gán mọi worker vào Job Object.
+- `Core/DemuxCapacityExceededException.cs`: factory ném khi vượt cap → AspNetCore map 503.
+- `StreamRelayOptions`: thêm `MaxWorkers`, `WarmPoolSize`.
+- `OutOfProcessFFmpegDemuxer`: refactor nhận `WorkerHandle` từ supervisor (ctor cũ `(format, path)` spawn standalone cho test). **Fix deadlock**: `OpenAsync` tự đọc frame tới khi nhận `Init` (trước đây chờ `_initTcs` mà init chỉ được đọc trong `ReadPacketAsync` chạy SAU Open → deadlock, 0 packet). Bỏ `_initTcs`.
+- `FFmpegStreamDemuxerFactory`: OutOfProcess route qua supervisor singleton (lazy); `Acquire` ném capacity → 503.
+- AspNetCore: `TryCreateDemuxer` tạo demuxer TRƯỚC khi upgrade WS → cap → **503** (không phải socket chết). `HandleIngestAsync` nhận demuxer dựng sẵn.
+
+### Smoke OutOfProcess — PASS
+`smoke --mode OutOfProcess`: init mpegts h264, 30 packet, 2 keyframe — y hệt InProcess. Worker process + supervisor + bridge stdin/stdout chạy thật end-to-end.
+
+### Test (22 pass, 0 skip)
+- `DemuxWorkerSupervisorTests`: Acquire vượt MaxWorkers=2 → `DemuxCapacityExceededException`; release 1 slot → acquire lại OK; unlimited (0) không ném.
+
+### Commit
 (ghi sau khi commit)

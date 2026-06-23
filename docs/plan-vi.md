@@ -128,7 +128,7 @@ Zero-copy fan-out (1 buffer → N WS), `ArrayPool` + refcount, một send loop/c
 | M2 | AspNetCore: WS endpoints ingest/view + DI + options + wire protocol | **Xong** — build sạch, +3 test wire protocol |
 | M3 | Demux.FFmpeg + Native: CMake, AVIO ring, C ABI, SEH guard, `Build.ps1` | **Xong** — native build (win x64/x86/arm64) OK, integration test demux mpegts thật pass |
 | M4 | Demo: host + console device-pusher + native viewer (end-to-end) | **Xong** — smoke chạy thật PASS (init h264 + 30 packet + 2 keyframe + EOS) |
-| M5 | Out-of-process demux (worker exe + supervisor + warm pool) | Chưa |
+| M5 | Out-of-process demux (worker exe + supervisor + warm pool) | **Xong** — smoke OutOfProcess PASS, test cap MaxWorkers→503 |
 | M6 | Web client (fMP4/MSE hoặc WebCodecs) | Chưa |
 
 ## 11. Cấu trúc thư mục hiện tại
