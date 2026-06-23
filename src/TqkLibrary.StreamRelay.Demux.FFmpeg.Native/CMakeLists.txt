@@ -38,10 +38,10 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/version.generated.h"
     @ONLY)
 
-set(CORE_SOURCES
+set(SHARED_SOURCES
     Exports.cpp
-    Demuxer.cpp)
-set(SHARED_SOURCES ${CORE_SOURCES})
+    Demuxer.cpp
+    Muxer.cpp)
 if(WIN32)
     list(APPEND SHARED_SOURCES dllmain.cpp version.rc)
 endif()

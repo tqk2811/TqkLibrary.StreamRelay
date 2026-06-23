@@ -3,8 +3,10 @@
 
 #include "platform.h"
 #include "DemuxInterop.h"
+#include "MuxInterop.h"
 
 class Demuxer;
+class Muxer;
 
 // Allocate a demuxer for the given (optional) container format hint.
 DLL_EXPORT Demuxer* Demux_Alloc(const char* formatName);
@@ -31,5 +33,13 @@ DLL_EXPORT void Demux_Free(Demuxer** ppDemuxer);
 
 // Last FFmpeg error captured on the current thread (0 = none).
 DLL_EXPORT int Demux_GetLastError();
+
+// ---- Fragmented-MP4 muxer (M6 web client) -------------------------------------------------------
+DLL_EXPORT Muxer* Mux_Alloc();
+DLL_EXPORT int  Mux_AddStream(Muxer* muxer, const MuxStreamIn* stream);
+DLL_EXPORT int  Mux_WriteHeader(Muxer* muxer, const uint8_t** outData, int* outLen);
+DLL_EXPORT int  Mux_WritePacket(Muxer* muxer, const MuxPacketIn* packet, const uint8_t** outData, int* outLen);
+DLL_EXPORT int  Mux_WriteTrailer(Muxer* muxer, const uint8_t** outData, int* outLen);
+DLL_EXPORT void Mux_Free(Muxer** ppMuxer);
 
 #endif // !_H_TqkLibraryStreamRelayDemuxFFmpegNative_H_

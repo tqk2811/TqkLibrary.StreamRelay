@@ -1,5 +1,6 @@
 #include "Exports.h"
 #include "Demuxer.h"
+#include "Muxer.h"
 #include "libav.h"
 
 // On Windows, isolate the packet read under SEH so an access violation from a
@@ -66,4 +67,38 @@ void Demux_Free(Demuxer** ppDemuxer) {
 
 int Demux_GetLastError() {
     return g_lastAvError;
+}
+
+// ---- Fragmented-MP4 muxer -----------------------------------------------------------------------
+
+Muxer* Mux_Alloc() {
+    g_lastAvError = 0;
+    return new (std::nothrow) Muxer();
+}
+
+int Mux_AddStream(Muxer* muxer, const MuxStreamIn* stream) {
+    if (!muxer) return AVERROR(EINVAL);
+    return muxer->AddStream(stream);
+}
+
+int Mux_WriteHeader(Muxer* muxer, const uint8_t** outData, int* outLen) {
+    if (!muxer || !outData || !outLen) return AVERROR(EINVAL);
+    return muxer->WriteHeader(outData, outLen);
+}
+
+int Mux_WritePacket(Muxer* muxer, const MuxPacketIn* packet, const uint8_t** outData, int* outLen) {
+    if (!muxer || !outData || !outLen) return AVERROR(EINVAL);
+    return muxer->WritePacket(packet, outData, outLen);
+}
+
+int Mux_WriteTrailer(Muxer* muxer, const uint8_t** outData, int* outLen) {
+    if (!muxer || !outData || !outLen) return AVERROR(EINVAL);
+    return muxer->WriteTrailer(outData, outLen);
+}
+
+void Mux_Free(Muxer** ppMuxer) {
+    if (ppMuxer && *ppMuxer) {
+        delete *ppMuxer;
+        *ppMuxer = nullptr;
+    }
 }
