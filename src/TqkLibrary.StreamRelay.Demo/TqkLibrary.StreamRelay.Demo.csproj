@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>TqkLibrary.StreamRelay.Demo</RootNamespace>
+    <AssemblyName>TqkLibrary.StreamRelay.Demo</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TqkLibrary.StreamRelay.AspNetCore\TqkLibrary.StreamRelay.AspNetCore.csproj" />
+    <ProjectReference Include="..\TqkLibrary.StreamRelay.Demux.FFmpeg\TqkLibrary.StreamRelay.Demux.FFmpeg.csproj" />
+  </ItemGroup>
+
+  <!-- Copy the mpegts sample beside the exe so `smoke` finds it without arguments. -->
+  <ItemGroup>
+    <None Include="..\..\test\TqkLibrary.StreamRelay.Test\Assets\sample.ts"
+          Condition="Exists('..\..\test\TqkLibrary.StreamRelay.Test\Assets\sample.ts')">
+      <Link>sample.ts</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

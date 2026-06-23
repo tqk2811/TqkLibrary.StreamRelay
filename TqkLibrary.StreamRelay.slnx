@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/TqkLibrary.StreamRelay.AspNetCore/TqkLibrary.StreamRelay.AspNetCore.csproj" />
     <Project Path="src/TqkLibrary.StreamRelay.Core/TqkLibrary.StreamRelay.Core.csproj" />
+    <Project Path="src/TqkLibrary.StreamRelay.Demo/TqkLibrary.StreamRelay.Demo.csproj" />
     <Project Path="src/TqkLibrary.StreamRelay.Demux.FFmpeg/TqkLibrary.StreamRelay.Demux.FFmpeg.csproj" />
   </Folder>
   <Folder Name="/test/">
