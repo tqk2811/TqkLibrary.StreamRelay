@@ -3,15 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <title>TqkLibrary.StreamRelay Demo</title>
-  <style>body { font-family: sans-serif; margin: 2rem; }</style>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; max-width: 820px; }
+    code { background: #f2f2f2; padding: 0 .25rem; }
+    #player { width: 100%; max-width: 720px; background: #000; }
+    .row { margin: .75rem 0; }
+    input[type=text] { width: 24rem; }
+    #log { white-space: pre-wrap; font-family: monospace; font-size: .8rem; color: #444; max-height: 12rem; overflow: auto; border: 1px solid #ddd; padding: .5rem; }
+  </style>
 </head>
 <body>
   <h1>TqkLibrary.StreamRelay</h1>
-  <p>Relay is running. The browser fMP4/MSE viewer is added in milestone M6.</p>
-  <p>Native clients connect over WebSocket:</p>
-  <ul>
-    <li>Ingest: <code>ws://&lt;host&gt;/relay/ingest/&lt;guid&gt;?format=mpegts</code></li>
-    <li>View: <code>ws://&lt;host&gt;/relay/view/&lt;guid&gt;</code></li>
-  </ul>
+  <p>Fragmented-MP4 viewer over MediaSource Extensions (MSE). Enter the stream GUID a device is pushing to
+     <code>/relay/ingest/&lt;guid&gt;</code> and press Play.</p>
+
+  <div class="row">
+    <input id="streamId" type="text" placeholder="stream GUID (e.g. 11111111-1111-1111-1111-111111111111)" />
+    <button id="play">Play</button>
+    <button id="stop">Stop</button>
+  </div>
+
+  <video id="player" controls autoplay muted playsinline></video>
+  <div id="log" class="row"></div>
+
+  <script src="js/mse-viewer.js"></script>
 </body>
 </html>

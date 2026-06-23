@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using TqkLibrary.StreamRelay.AspNetCore.Enums;
 using TqkLibrary.StreamRelay.AspNetCore.Extensions;
 using TqkLibrary.StreamRelay.Demux.FFmpeg.Extensions;
+using FFmpegMp4Extensions = TqkLibrary.StreamRelay.Demux.FFmpeg.Extensions.FragmentedMp4EndpointRouteBuilderExtensions;
 
 namespace TqkLibrary.StreamRelay.Demo
 {
@@ -32,6 +33,8 @@ namespace TqkLibrary.StreamRelay.Demo
 
             app.MapRelayIngest();
             app.MapRelayView();
+            // fMP4 endpoint for the browser MSE viewer (M6).
+            app.MapRelayViewMp4();
 
             return app;
         }
