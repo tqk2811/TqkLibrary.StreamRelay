@@ -154,5 +154,25 @@ namespace TqkLibrary.StreamRelay.Demux.FFmpeg
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int Demux_GetLastError();
+
+        // ---- fMP4 muxer ------------------------------------------------------------------------------
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr Mux_Alloc();
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int Mux_AddStream(IntPtr muxer, in MuxStreamIn stream);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int Mux_WriteHeader(IntPtr muxer, out IntPtr outData, out int outLen);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int Mux_WritePacket(IntPtr muxer, in MuxPacketIn packet, out IntPtr outData, out int outLen);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int Mux_WriteTrailer(IntPtr muxer, out IntPtr outData, out int outLen);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void Mux_Free(ref IntPtr ppMuxer);
     }
 }
