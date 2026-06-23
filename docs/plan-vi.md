@@ -12,10 +12,10 @@
 | Nguồn dữ liệu ingest | **Container stream** → server **phải demux bằng FFmpeg** (libavformat) để tách packet + phát hiện keyframe |
 | Chế độ demux | Hỗ trợ **cả in-process (P/Invoke) lẫn out-of-process (worker exe)**, chọn qua `DemuxMode { Auto, InProcess, OutOfProcess }` |
 | Nền tảng | **Windows + Linux** |
-| Client xem | Native (raw AVPacket) trước; Web (fMP4/MSE hoặc WebCodecs) là phase 2 |
+| Client xem | Native (raw AVPacket) **và** Web (fMP4/MSE) — cả hai đã triển khai |
 | Đóng gói | Core + Demux.FFmpeg(+Native) + AspNetCore + Demo + Test |
 
-Còn mở: codec mục tiêu giai đoạn đầu (H.264 + H.265, có AAC audio?), kỹ thuật web client (fMP4/MSE vs WebCodecs).
+Đã chốt khi triển khai: codec **H.264 + H.265 + AAC** (relay codec-agnostic, pass-through codec id); web client = **fMP4/MSE** (remux bằng libavformat). WebCodecs để ngỏ, làm sau nếu cần.
 
 ## 2. Tổng quan luồng dữ liệu
 
@@ -42,7 +42,7 @@ Còn mở: codec mục tiêu giai đoạn đầu (H.264 + H.265, có AAC audio?)
 | `TqkLibrary.StreamRelay.Demux.FFmpeg` | net8.0 | `InProcessFFmpegDemuxer`, `OutOfProcessFFmpegDemuxer`, factory, P/Invoke wrapper | Có (gián tiếp) |
 | `TqkLibrary.StreamRelay.Demux.FFmpeg.Native` | CMake (win x64/x86/arm64, linux x64/arm64) | C ABI demux: AVIO ring + `av_read_frame`, whitelist demuxer, SEH guard; build **shared lib** + **worker exe** | **C++ ffmpeg** |
 | `TqkLibrary.StreamRelay.AspNetCore` | net8.0 | `AddStreamRelay()`, `MapRelayIngest()`, `MapRelayView()`, WebSocket endpoints, options | Không |
-| `TqkLibrary.StreamRelay.Demo` | net8.0 (host) | Host mẫu + console device-pusher + (phase 2) web viewer | — |
+| `TqkLibrary.StreamRelay.Demo` | net8.0 (host) | Host mẫu + console device-pusher + native viewer + MSE web viewer | — |
 | `TqkLibrary.StreamRelay.Test` | net8.0 | Unit test GopBuffer/fanout/backpressure với demuxer giả | Không |
 
 Quy ước namespace (theo `~/.claude/csharp.md`): `interface`→`.Interfaces`, `enum`→`.Enums`, POCO/struct dữ liệu→`.Models`, helper→`.Helpers`, extension→`.Extensions`; engine class (`GopBuffer`, `StreamSession`, `StreamRegistry`) ở namespace feature gốc. Mỗi type một file.
@@ -111,7 +111,7 @@ services.AddStreamRelay(o => o.DemuxMode = DemuxMode.Auto);
 - **Recovery thực tế**: crash giữa chừng = drop đúng stream đó + yêu cầu device reconnect; **host + stream khác sống** — đúng mục tiêu "nhiều thiết bị không kéo sập server".
 - **Khuyến nghị**: 1 worker / 1 stream (cô lập sạch). Scale rất lớn mới chuyển pool "1 worker gánh K stream".
 
-## 8. Web client (Phase 2)
+## 8. Web client (đã triển khai ở M6)
 
 - **fMP4 + MSE**: remux packet đã demux → fragmented MP4 (`movflags=frag_keyframe+empty_moov+default_base_moof`), phát qua `/relay/view/{streamId}.mp4`. Mux packet đã hợp lệ → an toàn hơn demux nhiều.
 - **WebCodecs**: gửi thẳng khung AVPacket (mục 5) qua WS, browser decode bằng `VideoDecoder`. Nhẹ hơn, không cần remux, phụ thuộc codec WebCodecs hỗ trợ.
@@ -136,15 +136,17 @@ Zero-copy fan-out (1 buffer → N WS), `ArrayPool` + refcount, một send loop/c
 ```
 TqkLibrary.StreamRelay/
   TqkLibrary.StreamRelay.slnx
-  docs/plan-vi.md
-  src/TqkLibrary.StreamRelay.Core/
-    TqkLibrary.StreamRelay.Core.csproj   (net8.0, RootNamespace=TqkLibrary.StreamRelay)
-    Enums/MediaCodecKind.cs
-    Models/{MediaStreamInfo,MediaInit,RelayPacket,GopSnapshot}.cs
-    Buffers/RefCountedBuffer.cs
-    Interfaces/{IStreamDemuxer,IStreamDemuxerFactory,IPacketSink}.cs
-    GopBuffer.cs
+  docs/{plan-vi.md, progress-vi.md}
+  src/
+    TqkLibrary.StreamRelay.Core/                (net8.0)  models, GopBuffer, StreamSession, StreamRegistry, interfaces
+    TqkLibrary.StreamRelay.AspNetCore/          (net8.0)  AddStreamRelay, MapRelayIngest/View(+/.mp4), WireProtocol, WebSocketPacketSink
+    TqkLibrary.StreamRelay.Demux.FFmpeg/        (net8.0)  In/OutOfProcess demuxer + factory, fMP4 remuxer, worker supervisor, NativeWrapper
+    TqkLibrary.StreamRelay.Demux.FFmpeg.Native/ (CMake)   Demuxer/Muxer/Worker/Exports (+ Build.ps1) → shared lib + worker exe
+    TqkLibrary.StreamRelay.Demo/                (net8.0)  subcommand serve/push/view/smoke + wwwroot MSE viewer
+  test/
+    TqkLibrary.StreamRelay.Test/                (net8.0)  23 xUnit unit/integration test
 ```
+(Project Native **không** nằm trong `.slnx` — build riêng qua `Build.ps1`/CMake như mẫu AudioReader.)
 
 ## 12. Tham chiếu
 
