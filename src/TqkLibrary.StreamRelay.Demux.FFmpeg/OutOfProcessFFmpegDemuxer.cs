@@ -6,16 +6,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using TqkLibrary.StreamRelay.Buffers;
 using TqkLibrary.StreamRelay.Demux.FFmpeg.Helpers;
+using TqkLibrary.StreamRelay.Demux.FFmpeg.Process;
 using TqkLibrary.StreamRelay.Interfaces;
 using TqkLibrary.StreamRelay.Models;
+using SysProcess = System.Diagnostics.Process;
 
 namespace TqkLibrary.StreamRelay.Demux.FFmpeg
 {
     /// <summary>
-    /// Out-of-process FFmpeg demuxer: spawns the native worker executable and bridges it over stdin/stdout
-    /// with the length-prefixed protocol in <c>Worker.cpp</c>. A worker crash (corrupt/hostile stream) takes
-    /// down only that process; the host and other streams keep running. M5 layers a supervisor/warm-pool and
-    /// OS-level orphan protection (Job Object on Windows, PR_SET_PDEATHSIG on Linux) on top of this.
+    /// Out-of-process FFmpeg demuxer: drives a native worker process over stdin/stdout with the
+    /// length-prefixed protocol in <c>Worker.cpp</c>. A worker crash (corrupt/hostile stream) takes down only
+    /// that process; the host and other streams keep running. The worker is normally supplied by
+    /// <see cref="DemuxWorkerSupervisor"/> (cap + warm pool + OS orphan protection); a standalone constructor
+    /// spawns its own worker for tests/simple hosts.
     /// </summary>
     public sealed class OutOfProcessFFmpegDemuxer : IStreamDemuxer
     {
@@ -29,18 +32,30 @@ namespace TqkLibrary.StreamRelay.Demux.FFmpeg
         const byte TypeEof = 3;
         const byte TypeError = 4;
 
-        readonly Process _process;
+        readonly WorkerHandle _worker;
         readonly Stream _toWorker;
         readonly Stream _fromWorker;
         readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
-        readonly TaskCompletionSource<MediaInit?> _initTcs =
-            new TaskCompletionSource<MediaInit?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         MediaInit? _init;
         int _disposed;
         bool _openSent;
 
+        /// <summary>Drive a worker supplied by the supervisor (preferred path).</summary>
+        public OutOfProcessFFmpegDemuxer(WorkerHandle worker)
+        {
+            _worker = worker ?? throw new ArgumentNullException(nameof(worker));
+            _toWorker = worker.Input;
+            _fromWorker = worker.Output;
+        }
+
+        /// <summary>Spawn a standalone worker (no supervisor); used by tests/simple hosts.</summary>
         public OutOfProcessFFmpegDemuxer(string? formatName, string workerPath, string[]? nativeSearchDirectories = null)
+            : this(SpawnStandalone(formatName, workerPath))
+        {
+        }
+
+        static WorkerHandle SpawnStandalone(string? formatName, string workerPath)
         {
             if (string.IsNullOrEmpty(workerPath) || !File.Exists(workerPath))
                 throw new FileNotFoundException("Demux worker executable not found.", workerPath);
@@ -58,12 +73,10 @@ namespace TqkLibrary.StreamRelay.Demux.FFmpeg
             if (!string.IsNullOrEmpty(formatName))
                 psi.ArgumentList.Add(formatName!);
 
-            _process = new Process { StartInfo = psi };
-            if (!_process.Start())
+            var process = new SysProcess { StartInfo = psi, EnableRaisingEvents = true };
+            if (!process.Start())
                 throw new InvalidOperationException("Failed to start the demux worker process.");
-
-            _toWorker = _process.StandardInput.BaseStream;
-            _fromWorker = _process.StandardOutput.BaseStream;
+            return new WorkerHandle(process);
         }
 
         public MediaInit? Init => _init;
@@ -76,9 +89,22 @@ namespace TqkLibrary.StreamRelay.Demux.FFmpeg
                 await SendCommandAsync(CmdOpen, ReadOnlyMemory<byte>.Empty, cancellationToken).ConfigureAwait(false);
             }
 
-            using (cancellationToken.Register(() => _initTcs.TrySetCanceled()))
+            // Drive the reader until the Init frame arrives (the worker emits it right after Open succeeds).
+            // The same sequential stream is then read by ReadPacketAsync for the packets that follow.
+            while (true)
             {
-                _init = await _initTcs.Task.ConfigureAwait(false);
+                (byte type, byte[] payload)? frame = await ReadFrameAsync(cancellationToken).ConfigureAwait(false);
+                if (frame == null)
+                    return; // worker closed/crashed before init
+                (byte type, byte[] payload) = frame.Value;
+                if (type == TypeInit)
+                {
+                    _init = WorkerInitSerializer.Deserialize(payload);
+                    return;
+                }
+                if (type == TypeError || type == TypeEof)
+                    return; // open failed; Init stays null, ingest ends
+                // Ignore any stray frame and keep waiting for Init.
             }
         }
 
@@ -112,16 +138,12 @@ namespace TqkLibrary.StreamRelay.Demux.FFmpeg
                 switch (type)
                 {
                     case TypeInit:
-                        _init ??= WorkerInitSerializer.Deserialize(payload);
-                        _initTcs.TrySetResult(_init);
-                        continue; // keep reading until a packet/eof
+                        _init ??= WorkerInitSerializer.Deserialize(payload); // late init (rare); keep reading
+                        continue;
                     case TypePacket:
                         return ParsePacket(payload);
                     case TypeEof:
-                        _initTcs.TrySetResult(_init);
-                        return null;
                     case TypeError:
-                        _initTcs.TrySetResult(_init);
                         return null;
                     default:
                         continue;
@@ -209,9 +231,7 @@ namespace TqkLibrary.StreamRelay.Demux.FFmpeg
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return ValueTask.CompletedTask;
 
-            _initTcs.TrySetResult(_init);
-            try { if (!_process.HasExited) _process.Kill(entireProcessTree: true); } catch { }
-            try { _process.Dispose(); } catch { }
+            _worker.Dispose(); // kills the worker (best effort) and notifies the supervisor
             _writeLock.Dispose();
             return ValueTask.CompletedTask;
         }
