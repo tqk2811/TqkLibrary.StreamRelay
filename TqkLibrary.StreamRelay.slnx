@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/TqkLibrary.StreamRelay.Core/TqkLibrary.StreamRelay.Core.csproj" />
   </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/TqkLibrary.StreamRelay.Test/TqkLibrary.StreamRelay.Test.csproj" />
+  </Folder>
 </Solution>
