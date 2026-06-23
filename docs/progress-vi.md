@@ -92,4 +92,22 @@
 - `.gitattributes`: `*.ts/*.mp4/...` = binary (tránh git normalize file mpegts như text). `.gitignore`: `native-build/`, `native-artifacts/`.
 
 ### Commit
+- `ee4da3b` feat(demux-native), `1a64d15` chore(build), `9aefe2a` feat(demux managed), `f6c32b7` test, `6a0ae9a` docs
+
+## M4 — Demo: host + device-pusher + native viewer — XONG (smoke end-to-end PASS)
+
+### Đã làm (`src/TqkLibrary.StreamRelay.Demo`, ASP.NET Web SDK exe)
+- `RelayHostFactory.cs`: build WebApplication `AddStreamRelay` + `AddFFmpegDemuxer` + `UseWebSockets` + static files + `MapRelayIngest`/`MapRelayView`.
+- `DevicePusher.cs`: client WS → `/relay/ingest/{guid}`, stream byte file theo chunk, có pacing bytes/giây (giả lập real-time để viewer bắt kịp GOP live).
+- `NativeViewerClient.cs`: client WS → `/relay/view/{guid}`, reassemble message, decode bằng `WireProtocolReader`; log init + đếm packet/keyframe; trả `Result` để smoke assert.
+- `Program.cs`: subcommand `serve` / `push` / `view` / `smoke`. `smoke` = host + push + view trong 1 process, tự assert (init != null & packets>0 & keyframes>0).
+- `wwwroot/index.html`: placeholder (M6 thêm MSE viewer). Sample `sample.ts` link từ test asset, copy cạnh exe.
+
+### Smoke run thật (InProcess) — PASS
+`dotnet run -- smoke --mode InProcess`:
+- ingest WS → native demux: init `mpegts`, 1 stream Video h264 320x240, extradata 38B (SPS/PPS).
+- viewer: 30 packet, 2 keyframe (pts 138000 & 228000), nhận `Control EndOfStream`. RESULT PASS.
+- Log `non-existing PPS 0 referenced` từ `av_parser` (parse keyframe không có decoder đầy đủ) — **vô hại**, parser vẫn set `key_frame` đúng (2 keyframe đúng vị trí). Chỉ là debug log của libav.
+
+### Commit
 (ghi sau khi commit)
