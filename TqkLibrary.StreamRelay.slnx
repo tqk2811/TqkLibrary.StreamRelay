@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TqkLibrary.StreamRelay.Core/TqkLibrary.StreamRelay.Core.csproj" />
+  </Folder>
+</Solution>

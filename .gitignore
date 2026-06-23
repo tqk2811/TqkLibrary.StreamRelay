@@ -1,0 +1,51 @@
+## .NET / Visual Studio build output
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Native build OutDir (per repo convention: $(SolutionDir)x64|x86\Release\)
+[Xx]64/
+[Xx]86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+[Dd]ebug/
+[Rr]elease/
+build/
+out/
+artifacts/
+
+## CMake
+CMakeCache.txt
+CMakeFiles/
+cmake-install.cmake
+CMakeUserPresets.json
+
+## Native intermediates
+*.obj
+*.o
+*.lib
+*.exp
+*.ilk
+*.pdb
+*.exe.recipe
+
+## Auto-generated native version header (written by Build.ps1)
+version.generated.h
+
+## NuGet output
+*.nupkg
+*.snupkg
+
+## IDEs
+.idea/
+.vscode/
+
+## OS
+Thumbs.db
+ehthumbs.db
+.DS_Store
