@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TqkLibrary.StreamRelay.Core\TqkLibrary.StreamRelay.Core.csproj" />
+    <ProjectReference Include="..\..\src\TqkLibrary.StreamRelay.AspNetCore\TqkLibrary.StreamRelay.AspNetCore.csproj" />
   </ItemGroup>
 
 </Project>
