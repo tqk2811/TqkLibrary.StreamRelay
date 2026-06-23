@@ -11,3 +11,9 @@
 *.so  binary
 *.dylib binary
 *.pdb binary
+
+# Media test fixtures (MPEG transport stream / mp4) are binary, not source text.
+*.ts  binary
+*.mp4 binary
+*.mkv binary
+*.flv binary
