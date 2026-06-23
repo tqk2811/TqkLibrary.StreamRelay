@@ -28,5 +28,17 @@ namespace TqkLibrary.StreamRelay.AspNetCore
 
         /// <summary>How long to wait for the demuxer to discover the container header before giving up.</summary>
         public TimeSpan OpenTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// Maximum number of concurrent out-of-process demux workers. Ingest beyond this is rejected with
+        /// 503. Zero or negative means unlimited. Only applies to <see cref="Enums.DemuxMode.OutOfProcess"/>.
+        /// </summary>
+        public int MaxWorkers { get; set; } = 0;
+
+        /// <summary>
+        /// Number of idle demux workers kept pre-spawned so a new stream starts without paying the process
+        /// launch latency. Zero disables the warm pool. Only applies to out-of-process mode.
+        /// </summary>
+        public int WarmPoolSize { get; set; } = 0;
     }
 }

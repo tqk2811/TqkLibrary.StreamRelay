@@ -46,13 +46,32 @@ namespace TqkLibrary.StreamRelay.AspNetCore
         // -------------------------------------------------------------------------------------------
 
         /// <summary>
-        /// Handle an ingest connection for <paramref name="streamId"/>: create the session + demuxer, pump
-        /// socket bytes into the demuxer, and run the session's demux loop until the device disconnects.
+        /// Try to create the demuxer for an ingest request before upgrading the socket, so a worker-cap
+        /// rejection becomes HTTP 503. Returns false (with <paramref name="demuxer"/> null) at capacity.
         /// </summary>
-        public async Task HandleIngestAsync(Guid streamId, string? format, WebSocket socket, CancellationToken cancellationToken)
+        public bool TryCreateDemuxer(string? format, out IStreamDemuxer? demuxer)
+        {
+            try
+            {
+                demuxer = _demuxerFactory.Create(format);
+                return true;
+            }
+            catch (DemuxCapacityExceededException ex)
+            {
+                _logger.LogWarning(ex, "Ingest rejected: demux capacity exceeded.");
+                demuxer = null;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Handle an ingest connection for <paramref name="streamId"/> using a pre-created
+        /// <paramref name="demuxer"/>: create the session, pump socket bytes into the demuxer, and run the
+        /// session's demux loop until the device disconnects.
+        /// </summary>
+        public async Task HandleIngestAsync(Guid streamId, IStreamDemuxer demuxer, WebSocket socket, CancellationToken cancellationToken)
         {
             StreamSession session = _registry.GetOrCreateForIngest(streamId);
-            IStreamDemuxer demuxer = _demuxerFactory.Create(format);
 
             using var connCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.SessionToken);
             CancellationToken token = connCts.Token;

@@ -35,8 +35,15 @@ namespace TqkLibrary.StreamRelay.AspNetCore.Extensions
                     return;
                 }
 
+                // Create the demuxer before upgrading so a worker-cap rejection returns 503 (not a dead socket).
+                if (!handler.TryCreateDemuxer(format, out var demuxer) || demuxer == null)
+                {
+                    context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                    return;
+                }
+
                 using WebSocket socket = await context.WebSockets.AcceptWebSocketAsync().ConfigureAwait(false);
-                await handler.HandleIngestAsync(streamId, format, socket, context.RequestAborted).ConfigureAwait(false);
+                await handler.HandleIngestAsync(streamId, demuxer, socket, context.RequestAborted).ConfigureAwait(false);
             });
         }
 
