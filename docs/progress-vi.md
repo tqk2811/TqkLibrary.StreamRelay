@@ -61,4 +61,35 @@
 - `WireProtocolTests`: Init round-trip (video+audio+extradata), Packet round-trip (payload nguyên vẹn), Control = EOS.
 
 ### Commit
+- `<m2-feat>` feat(aspnetcore), `<m2-test>` test, `a5f5206` docs
+
+## M3 — Demux.FFmpeg + Native — XONG (build native Windows OK, integration test pass)
+
+### Native (`src/TqkLibrary.StreamRelay.Demux.FFmpeg.Native`, CMake)
+- `ByteFifo.h`: FIFO byte thread-safe (mutex + condition_variable). `Push`/`Read` (block tới khi có data/EOF/abort)/`SignalEof`/`Abort`. AVIO read callback chặn ở `Read`.
+- `Demuxer.{h,cpp}`: custom `AVIOContext` (read callback kéo từ FIFO, no seek) → `avformat_open_input` + `avformat_find_stream_info`. Whitelist demuxer bằng `av_find_input_format(formatName)`. `AVFMT_FLAG_CUSTOM_IO`. `BuildStreamInfo` copy codecpar/extradata/codecName + tạo `av_parser` cho stream video (fallback keyframe). `ReadPacket`: `av_read_frame` → keyframe = `AV_PKT_FLAG_KEY` hoặc parser `key_frame`; data ptr valid tới read kế (managed copy ngay).
+- `DemuxInterop.h`: struct POD `StreamInfoOut`/`MediaInitOut`/`PacketOut` (`#pragma pack(8)`), khớp mirror managed.
+- `Exports.{h,cpp}`: C ABI `Demux_Alloc/PushBytes/SignalEof/Open/GetInit/ReadPacket/Free/GetLastError`. **Windows: `ReadPacketGuarded` bọc `av_read_frame` trong SEH `__try/__except`** → access-violation thành `AVERROR_EXTERNAL` (chỉ stream đó chết, host sống). Hàm SEH không có C++ object cần unwinding.
+- `Worker.cpp`: exe out-of-process (cho M5) link thẳng demux core, cầu nối stdin/stdout length-prefixed: host→worker `[u8 cmd][i32 len][payload]` (1=Push,2=Eof,3=Open); worker→host `[u8 type][i32 len][payload]` (1=Init,2=Packet,3=Eof,4=Error). `_setmode(_O_BINARY)` cho stdio. 1 thread đọc stdin + main loop đọc packet.
+- `CMakeLists.txt`: build SHARED lib + worker exe, link avformat/avcodec/avutil từ NuGet (Windows import lib / Linux .so). `version.rc` + `version.generated.h.in` (resource version Windows).
+- `Build.ps1`: CMake qua VS (vswhere `-requires VC.Tools`), version qua GitVersion, build win x64/x86/arm64 → `native-artifacts/runtimes/<rid>/native/`. **Fix**: dùng args array tường minh cho cmake (`@cmakeArgs`) — form backtick-continued `-DVAR=$v` bị mis-tokenize trên host này → CMake nhận literal `$verMajor` → RC2104.
+
+### Managed (`src/TqkLibrary.StreamRelay.Demux.FFmpeg`)
+- `NativeWrapper.cs`: resolver preload ffmpeg (avutil→…→avformat) + load native lib; `FindWorkerExecutable` (cho M5); P/Invoke C ABI.
+- `Interop/{StreamInfoOut,MediaInitOut,PacketOut}.cs`: mirror struct `Pack=8`.
+- `Helpers/NativeInitMarshaler.cs`: `MediaInitOut` → `MediaInit` (đọc mảng stream, extradata, codecName; map AVMediaType→MediaCodecKind; chọn PrimaryVideoStreamIndex).
+- `Helpers/WorkerInitSerializer.cs`: parse init payload từ worker (cho out-of-process).
+- `InProcessFFmpegDemuxer.cs` (`IStreamDemuxer`): `Demux_Alloc`; `WriteAsync` pin + `PushBytes` (FIFO copy); `OpenAsync` chạy `Demux_Open` trên thread (block tới khi đủ byte); `ReadPacketAsync` `Demux_ReadPacket` trên thread, copy native→`RefCountedBuffer` qua `Buffer.MemoryCopy`. `_nativeLock` để PushBytes (ingest thread) an toàn với ReadPacket (demux thread) — thực ra FIFO tự lock, lock này bảo vệ ReadPacket/Free.
+- `OutOfProcessFFmpegDemuxer.cs`: spawn worker exe, cầu nối stdin/stdout; parse Init/Packet/Eof/Error. (M5 thêm supervisor/warm-pool/job-object.)
+- `FFmpegStreamDemuxerFactory.cs`: chọn In/OutOfProcess theo `DemuxMode` (Auto: Windows→InProcess, Linux→OutOfProcess); OutOfProcess thiếu worker → fallback InProcess.
+- `Extensions/FFmpegDemuxServiceCollectionExtensions.cs`: `AddFFmpegDemuxer()` thay factory placeholder.
+
+### Build native (Windows) — THÀNH CÔNG
+- VS 2026 (18) Community có CMake+Ninja+VC. `Build.ps1` build cả 3 RID Windows. Native dll FileVersion `0.0.9.0`. Worker exe build OK.
+
+### Test (20 pass, 0 skip)
+- `InProcessFFmpegDemuxerTests` (SkippableFact): demux file `Assets/sample.ts` (mpegts H.264 2s 320x240, ffmpeg.exe sinh) qua native InProcess — **chạy thật, không skip**: probe init có stream video, đọc ra packet + có keyframe, payload > 0. Xác nhận toàn bộ đường native end-to-end.
+- `.gitattributes`: `*.ts/*.mp4/...` = binary (tránh git normalize file mpegts như text). `.gitignore`: `native-build/`, `native-artifacts/`.
+
+### Commit
 (ghi sau khi commit)

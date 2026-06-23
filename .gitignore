@@ -37,6 +37,10 @@ CMakeUserPresets.json
 ## Auto-generated native version header (written by Build.ps1)
 version.generated.h
 
+## CMake native build + collected per-RID artifacts (produced by Build.ps1 / CI)
+native-build/
+native-artifacts/
+
 ## NuGet output
 *.nupkg
 *.snupkg
